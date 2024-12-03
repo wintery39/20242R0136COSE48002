@@ -34,7 +34,6 @@ tests/tls/*
 .make-*
 .prerequisites
 *.dSYM
-Makefile.dep
 .vscode/*
 .idea/*
 .ccls
