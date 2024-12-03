@@ -3,15 +3,13 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from celery.result import AsyncResult
 from tasks import celery_app, execute_ai_okr
-from crud import get_okr_join_company, get_ai_okr_result, findById, upload_dataframe, get_okr_join_company_prediction
+from crud import get_okr_join_company, get_ai_okr_result, findById, upload_dataframe, get_okr_join_company_prediction, get_companys
 from database import get_db
 from pydantic import BaseModel
 from typing import List
 import pandas as pd
 import numpy as np
 from io import BytesIO
-
-PAGE_SIZE = 10
 
 app = FastAPI()
 
@@ -20,21 +18,36 @@ class Ai(BaseModel):
 
 
 @app.get("/{page}")
-async def getokr(page: int, db: AsyncSession = Depends(get_db), company_name:str | None = None, new_sorting: bool = True):
+async def getokr(page: int, db: AsyncSession = Depends(get_db), company_name:str | None = None, new_sorting: bool = True, page_size: int = 10):
     if page < 1:
         page = 1
+    if page_size < 1:
+        page_size = 10
 
-    offset = (page-1)*PAGE_SIZE
-    response = await get_okr_join_company(db, offset, PAGE_SIZE, company_name, new_sorting)
+    offset = (page-1)*page_size
+    response = await get_okr_join_company(db, offset, page_size, company_name, new_sorting)
     return response
 
 @app.get("/prediction/{page}")
-async def getokr_with_prediciton(page: int, db: AsyncSession = Depends(get_db), company_name:str | None = None, new_sorting: bool = True):
+async def getokr_with_prediciton(page: int, db: AsyncSession = Depends(get_db), company_name:str | None = None, new_sorting: bool = True, page_size: int = 10):
     if page < 1:
         page = 1
+    if page_size < 1:
+        page_size = 10
 
-    offset = (page-1)*PAGE_SIZE
-    response = await get_okr_join_company_prediction(db, offset, PAGE_SIZE, company_name, new_sorting)
+    offset = (page-1)*page_size
+    response = await get_okr_join_company_prediction(db, offset, page_size, company_name, new_sorting)
+    return response
+
+@app.get("/company/{page}")
+async def getcompany(page: int, db: AsyncSession = Depends(get_db), company_name: str | None = None, page_size: int = 10):
+    if page < 1:
+        page = 1
+    if page_size < 1:
+        page_size = 10
+
+    offset = (page-1)*page_size
+    response = await get_companys(db, offset, company_name, page_size)
     return response
 
 @app.get("/ai/{id}")

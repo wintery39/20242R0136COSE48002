@@ -13,7 +13,6 @@ class Company(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     field = Column(String)
-    team = Column(String)
     description = Column(String)
     homepage_url = Column(String)
 
@@ -35,6 +34,7 @@ class Okr(Base):
     is_objective = Column(Boolean)
     input_sentence = Column(String)
     upper_objective = Column(String)
+    team = Column(String)
     guideline = Column(String)
     revision = Column(String)
     revision_description = Column(String)

@@ -36,7 +36,6 @@ async def upload_dataframe(db: AsyncSession, df):
         query = select(Company).where(
             Company.name == row['company'],
             Company.field == row['field'],
-            Company.team == row['team']
         )
         result = await db.execute(query)
         company = result.scalar_one_or_none()
@@ -46,7 +45,6 @@ async def upload_dataframe(db: AsyncSession, df):
             stmt = insert(Company).values(
                 name=row['company'],
                 field=row['field'],
-                team=row['team'],
                 description=row.get('company_description'),
                 homepage_url=row.get('homepage_url')
             ).returning(Company.id)
@@ -60,6 +58,7 @@ async def upload_dataframe(db: AsyncSession, df):
             is_objective=(row["type"] == "Objective"),
             input_sentence=row['input_sentence'],
             upper_objective=row['upper_objective'],
+            team=row['team'],
             company_id=company_id
         )
         await db.execute(okr_stmt)
@@ -78,24 +77,52 @@ async def upload_dataframe(db: AsyncSession, df):
 
     await db.commit()
 
-
-async def get_okr_join_company_prediction(db: AsyncSession, offset, PAGE_SIZE, company_name = None, new_sorting = True):
-    query = select(Okr, Company, func.count().over().label("total_count")).join(Company, (Company.id == Okr.company_id), isouter=True).options(joinedload(Okr.predictions))
+async def get_companys(db: AsyncSession, offset, company_name, page_size):
+    query = select(Company, func.count().over().label("total_count"))
     
     if company_name is not None:
         query = query.where(Company.name == company_name)
     
-    if new_sorting == True:
-        query = query.order_by(Okr.created_at.desc()).offset(offset).limit(PAGE_SIZE)
+    result = await db.execute(query)
+    rows = result.unique().all()
+
+    total_page = 0    
+    if rows:
+        total_page = (rows[0].total_count+page_size-1) // page_size
+    
+    data = [
+        {
+            "name": company.name,
+            "field": company.field,
+            "description": company.description
+        }
+        for company, _ in rows
+    ]
+
+    return {
+        "data": data,
+        "total_page": total_page
+    }
+
+async def get_okr_join_company_prediction(db: AsyncSession, offset, page_size, company_name = None, new_sorting = True):
+    query = select(Okr, Company, func.count().over().label("total_count")).join(Company, (Company.id == Okr.company_id), isouter=True)
+    
+    if company_name is not None:
+        query = query.where(Company.name == company_name).options(joinedload(Okr.predictions))
     else:
-        query = query.order_by(Okr.created_at.asc()).offset(offset).limit(PAGE_SIZE)
+        query = query.options(joinedload(Okr.predictions))
+    
+    if new_sorting == True:
+        query = query.order_by(Okr.created_at.desc()).offset(offset).limit(page_size)
+    else:
+        query = query.order_by(Okr.created_at.asc()).offset(offset).limit(page_size)
 
     result = await db.execute(query)
     rows = result.unique().all()
-    print(rows)
+
     total_page = 0    
     if rows:
-        total_page = (rows[0].total_count+PAGE_SIZE-1) // PAGE_SIZE
+        total_page = (rows[0].total_count+page_size-1) // page_size
     
     data = [
         {
@@ -106,6 +133,7 @@ async def get_okr_join_company_prediction(db: AsyncSession, offset, PAGE_SIZE, c
             "created_at": okr.created_at,
             "company_name": company.name,
             "company_field": company.field,
+            "team": okr.team,
             "revision": okr.revision,
             "revision_description": okr.revision_description,
             "guideline": okr.guideline,
@@ -128,23 +156,23 @@ async def get_okr_join_company_prediction(db: AsyncSession, offset, PAGE_SIZE, c
     }
 
 
-async def get_okr_join_company(db: AsyncSession, offset, PAGE_SIZE, company_name = None, new_sorting = True):
+async def get_okr_join_company(db: AsyncSession, offset, page_size, company_name = None, new_sorting = True):
     query = select(Okr, Company, func.count().over().label("total_count")).join(Company, (Company.id == Okr.company_id), isouter=True)
     
     if company_name is not None:
         query = query.where(Company.name == company_name)
     
     if new_sorting == True:
-        query = query.order_by(Okr.created_at.desc()).offset(offset).limit(PAGE_SIZE)
+        query = query.order_by(Okr.created_at.desc()).offset(offset).limit(page_size)
     else:
-        query = query.order_by(Okr.created_at.asc()).offset(offset).limit(PAGE_SIZE)
+        query = query.order_by(Okr.created_at.asc()).offset(offset).limit(page_size)
 
     result = await db.execute(query)
     rows = result.all()
 
     total_page = 0    
     if rows:
-        total_page = (rows[0].total_count+PAGE_SIZE-1) // PAGE_SIZE
+        total_page = (rows[0].total_count+page_size-1) // page_size
 
     data = [
         {
@@ -155,6 +183,7 @@ async def get_okr_join_company(db: AsyncSession, offset, PAGE_SIZE, company_name
             "created_at": okr.created_at,
             "company_name": company.name,
             "company_field": company.field,
+            "team": okr.team
         }
         for okr, company, _ in rows
     ]
@@ -198,8 +227,10 @@ async def get_ai_okr_result(db: AsyncSession, okr_id):
         "upper_objective": okr.upper_objective,
         "guideline": okr.guideline,
         "revision": okr.revision,
+
         "revision_description": okr.revision_description,
-        "predictions": predict_result
+        "predictions": predict_result,
+        "team": okr.team
     }
     return data
 
