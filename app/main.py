@@ -82,7 +82,7 @@ async def upload_excel(file: UploadFile = File(...), db: AsyncSession = Depends(
         contents = await file.read()
         # BytesIO 객체를 사용하여 Pandas로 읽기
         df = pd.read_excel(BytesIO(contents))
-        expected_keys = {"type", "input_sentence", "upper_objective", "company", "field", "team", "company_description", "homepage_url", "urls"}
+        expected_keys = {"type", "input_sentence", "upper_objective", "company", "field", "team", "company_description", "homepage_url", "filenames"}
         
         actual_keys = set(df.columns)
 

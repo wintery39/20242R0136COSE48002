@@ -63,15 +63,15 @@ async def upload_dataframe(db: AsyncSession, df):
         )
         await db.execute(okr_stmt)
 
-        if row.get("urls") is not None:
+        if row.get("filenames") is not None:
             try:
-                temp_list = row.get("urls").split(',,')
+                temp_list = row.get("filenames").split(',,')
                 for url in temp_list:
                     document = sq_insert(Document).values(
                         company_id=company_id,
                         url=url
                     )
-                    await db.execute(okr_stmt)
+                    await db.execute(document)
             except:
                 pass
 
