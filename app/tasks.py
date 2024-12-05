@@ -8,7 +8,7 @@ from ai.kr import krEV_selfC, krRV
 from ai.obj import objEV, objRV
 from logger_config import logger
 from guideline_output_fixed import key_result_query, objective_query
-# from rag_finalized import rag
+from rag_finalized import rag
 
 celery_app = Celery("tasks", broker=CELERY_BROKER_URL, backend=CELERY_RESULT_BACKEND)
 
@@ -99,15 +99,15 @@ def execute_ai_okr(okr_info):
 @celery_app.task(name="execute_rag")
 def execute_rag_company(company_info):
     
-    # description = rag(company_info["company_name"], company_info["company_field"], "eqs-rag", company_info["company_filename"]) #company_name, company_type, bucket_name, doc_name
+    result = rag(company_info["company_name"], company_info["company_field"], "eqs-rag", company_info["company_filename"]) #company_name, company_type, bucket_name, doc_name
     
-    # if description is None:
-    #     logger.error(f"company_id : {company_info['company_id']} 평가 오류 발생")
-    #     return False
+    if result["description"] is None:
+        logger.error(f"company_id : {company_info['company_id']} 평가 오류 발생")
+        return False
 
-    # logger.info(f"company_id : {company_info['company_id']} description 생성 {description}")
-    # loop = get_event_loop()
-    # loop.run_until_complete(update_description_company(company_info["company_id"], description))
-    # logger.info(f"company_id : {company_info['company_id']}에 대한 description 저장 완료")
+    logger.info(f"company_id : {company_info['company_id']} description 생성 {result['description']}")
+    loop = get_event_loop()
+    loop.run_until_complete(update_description_company(company_info["company_id"], result["description"]))
+    logger.info(f"company_id : {company_info['company_id']}에 대한 description 저장 완료")
     return True
 

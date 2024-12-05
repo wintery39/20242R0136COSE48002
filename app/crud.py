@@ -73,7 +73,6 @@ async def upload_dataframe(db: AsyncSession, df):
         try:
             query = select(Company).where(
                 Company.name == row['company'],
-                Company.field == row['field'],
             )
             result = await db.execute(query)
             company = result.scalar_one_or_none()
@@ -114,6 +113,7 @@ async def get_companys(db: AsyncSession, offset, company_name, page_size):
         
         if company_name is not None:
             query = query.where(Company.name == company_name)
+
         
         result = await db.execute(query)
         rows = result.unique().all()
@@ -124,6 +124,7 @@ async def get_companys(db: AsyncSession, offset, company_name, page_size):
         
         data = [
             {
+                "company_id": company.id,
                 "name": company.name,
                 "field": company.field,
                 "description": company.description
@@ -142,16 +143,18 @@ async def get_companys(db: AsyncSession, offset, company_name, page_size):
         logger.error(f"get_companys 에러: {e}")
         return None
 
-async def get_okr_join_company_prediction(db: AsyncSession, offset, page_size, company_name = None, new_sorting = True):
-    logger.info(f"get_okr_join_company_prediction 호출: offset={offset}, page_size={page_size}, company_name={company_name}, new_sorting={new_sorting}")
+async def get_okr_join_company_prediction(db: AsyncSession, offset, page_size, company_name = None, company_field = None, new_sorting = True):
+    logger.info(f"get_okr_join_company_prediction 호출: offset={offset}, page_size={page_size}, company_name={company_name}, company_field={company_field}, new_sorting={new_sorting}")
     try:
         query = select(Okr, Company, func.count().over().label("total_count")).join(Company, (Company.id == Okr.company_id), isouter=True)
         
         if company_name is not None:
-            query = query.where(Company.name == company_name).options(joinedload(Okr.predictions))
+            query = query.where(Company.name == company_name)
             logger.info(f"필터 조건 추가: company_name={company_name}")
-        else:
-            query = query.options(joinedload(Okr.predictions))
+        if company_field is not None:
+            query = query.where(Company.field == company_field)
+            logger.info(f"필터 조건 추가: company_field={company_field}")
+        query = query.options(joinedload(Okr.predictions))
         
         if new_sorting == True:
             query = query.order_by(Okr.created_at.desc()).offset(offset).limit(page_size)
@@ -203,14 +206,17 @@ async def get_okr_join_company_prediction(db: AsyncSession, offset, page_size, c
         return None
 
 
-async def get_okr_join_company(db: AsyncSession, offset, page_size, company_name = None, new_sorting = True):
-    logger.info(f"get_okr_join_company 호출: offset={offset}, page_size={page_size}, company_name={company_name}, new_sorting={new_sorting}")
+async def get_okr_join_company(db: AsyncSession, offset, page_size, company_name = None, company_field = None, new_sorting = True):
+    logger.info(f"get_okr_join_company 호출: offset={offset}, page_size={page_size}, company_name={company_name}, company_field={company_field}, new_sorting={new_sorting}")
     try:
         query = select(Okr, Company, func.count().over().label("total_count")).join(Company, (Company.id == Okr.company_id), isouter=True)
         
         if company_name is not None:
             query = query.where(Company.name == company_name)
             logger.info(f"필터 조건 추가: company_name={company_name}")
+        if company_field is not None:
+            query = query.where(Company.field == company_field)
+            logger.info(f"필터 조건 추가: company_field={company_field}")
 
         if new_sorting == True:
             query = query.order_by(Okr.created_at.desc()).offset(offset).limit(page_size)

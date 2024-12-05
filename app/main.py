@@ -11,8 +11,22 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 from logger_config import logger
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:3000"
+]
+
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # 허용할 출처 목록
+    allow_credentials=True, # 쿠키를 허용할지 여부
+    allow_methods=["*"],    # 허용할 HTTP 메서드 (GET, POST 등)
+    allow_headers=["*"],    # 허용할 HTTP 헤더
+)
 
 class Ai(BaseModel):
     okr_ids: List[int]
@@ -22,8 +36,8 @@ class Rag(BaseModel):
 
 
 @app.get("/{page}")
-async def getokr(page: int, db: AsyncSession = Depends(get_db), company_name:str | None = None, new_sorting: bool = True, page_size: int = 10):
-    logger.info(f"getokr 호출됨: page={page}, company_name={company_name}, new_sorting={new_sorting}, page_size={page_size}")
+async def getokr(page: int, db: AsyncSession = Depends(get_db), company_name:str | None = None, company_field:str | None = None, new_sorting: bool = True, page_size: int = 10):
+    logger.info(f"getokr 호출됨: page={page}, company_name={company_name}, company_field={company_field}, new_sorting={new_sorting}, page_size={page_size}")
     
     if page < 1:
         page = 1
@@ -31,13 +45,13 @@ async def getokr(page: int, db: AsyncSession = Depends(get_db), company_name:str
         page_size = 10
 
     offset = (page-1)*page_size
-    response = await get_okr_join_company(db, offset, page_size, company_name, new_sorting)
+    response = await get_okr_join_company(db, offset, page_size, company_name, company_field, new_sorting)
     logger.info(f"getokr 반환값: {response}")
     return response
 
 @app.get("/prediction/{page}")
-async def getokr_with_prediciton(page: int, db: AsyncSession = Depends(get_db), company_name:str | None = None, new_sorting: bool = True, page_size: int = 10):
-    logger.info(f"getokr_with_prediciton 호출됨: page={page}, company_name={company_name}, new_sorting={new_sorting}, page_size={page_size}")
+async def getokr_with_prediciton(page: int, db: AsyncSession = Depends(get_db), company_name:str | None = None, company_field:str | None = None, new_sorting: bool = True, page_size: int = 10):
+    logger.info(f"getokr_with_prediciton 호출됨: page={page}, company_name={company_name}, company_field={company_field}, new_sorting={new_sorting}, page_size={page_size}")
     if page < 1:
         logger.warning("page 값이 1보다 작습니다. 1로 설정합니다.")
         page = 1
@@ -46,7 +60,7 @@ async def getokr_with_prediciton(page: int, db: AsyncSession = Depends(get_db), 
         page_size = 10
 
     offset = (page-1)*page_size
-    response = await get_okr_join_company_prediction(db, offset, page_size, company_name, new_sorting)
+    response = await get_okr_join_company_prediction(db, offset, page_size, company_name, company_field, new_sorting)
     logger.info(f"getokr_with_prediciton 반환값: {response}")
     return response
 
@@ -108,9 +122,12 @@ async def post_rag_company(data: Rag, db: AsyncSession = Depends(get_db)):
     for company_id in data.company_ids:
         info = await findCompanyById(db, company_id)
         temp_dict = dict()
-        if info == None:
+        if info is None:
             logger.warning(f"findCompanyById 실패: company_id={company_id}")
             temp_dict["output_id"] = "Error"
+        elif info["company_filename"] is None:
+            logger.warning(f"company_filename이 존재하지 않음: company_id={company_id}")
+            temp_dict["output_id"] = "Error: company_filename이 없음."
         else:
             temp_dict["output_id"] = execute_rag_company.delay(info).id
             logger.info(f"RAG 작업 시작: task_id={temp_dict['output_id']}, company_id={company_id}")

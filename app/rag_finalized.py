@@ -12,8 +12,13 @@
 
 # %pip install tiktoken
 
-# %pip install selenium
+# %pip install selenium --upgrade 
+# %pip install --upgrade beautifulsoup4 lxml
 # %pip install webdriver-manager
+
+# %pip install numpy==1.23.5
+
+# %pip install sentence-transformers
 # -
 
 
@@ -35,8 +40,6 @@ import io
 import zipfile
 from langchain.vectorstores import FAISS
 import os
-
-# %pip install numpy==1.23.5
 
 import pandas as pd
 import tiktoken
@@ -69,16 +72,17 @@ secret_key = NAVER_SECRET_KEY
 S3_OBJECT_NAME = "vectorstore/vectorstore_faiss.zip"
 
 
-# %pip install sentence-transformers
-
-# %pip install -U tensorflow==2.16
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # GPU 비활성화
+os.environ["BITSANDBYTES_NOWELCOME"] = "1"
 
 # +
 # embedding
 
 embeddings_model = HuggingFaceEmbeddings(
     model_name='jhgan/ko-sbert-nli',
-    model_kwargs={'device': 'cpu'},
+#     model_kwargs = {'device': 'cuda'},
+     model_kwargs={'device': 'cpu'},
     encode_kwargs={'normalize_embeddings': True}
 )
 
@@ -95,9 +99,6 @@ class PyMuPDFLoaderFromBytes:
             for page in doc:
                 text += page.get_text()
         return [{"page_content": text}]
-
-# %pip install selenium --upgrade 
-# %pip install --upgrade beautifulsoup4 lxml
 
 from selenium.webdriver.chrome.options import Options
 
@@ -124,7 +125,7 @@ def store_vector(company_name, company_type, bucket_name, doc_name):
 
             # 객체 내용을 읽어서 반환
             content = response['Body'].read()
-            print(f"Successfully fetched object '{object_name}' from bucket '{bucket_name}'")
+#             print(f"Successfully fetched object '{object_name}' from bucket '{bucket_name}'")
             return content
 
         except NoCredentialsError:
@@ -363,7 +364,7 @@ def store_vector(company_name, company_type, bucket_name, doc_name):
 
         memory_file.seek(0)
         s3.put_object(Bucket=bucket_name, Key=s3_object_name, Body=memory_file.read())
-        print(f"Vector store uploaded to S3: {s3_object_name}")
+#         print(f"Vector store uploaded to S3: {s3_object_name}")
 
     def download_vectorstore_from_s3(bucket_name, s3_object_name):
         service_name = 's3'
@@ -396,7 +397,7 @@ def store_vector(company_name, company_type, bucket_name, doc_name):
             return None
 
     def create_vectorstore_from_documents(documents):
-        print(f"Creating a new FAISS vector store from {len(documents)} documents...")
+#         print(f"Creating a new FAISS vector store from {len(documents)} documents...")
         vectorstore = FAISS.from_documents(documents, embedding=embeddings_model)
         return vectorstore
 
@@ -430,7 +431,7 @@ def rag(company_name, company_type, bucket_name, doc_name):
     result_doc = store_vector(company_name, company_type, bucket_name, doc_name)
 
     if isinstance(result_doc, str):
-        error_description = parse_description(result)
+        error_description = parse_description(result_doc)
         return error_description
     if result_doc is None:
         error_m = "Failed to create or retrieve vectorstore. Check your inputs or storage function."
@@ -500,13 +501,15 @@ def rag(company_name, company_type, bucket_name, doc_name):
 
     return description_data
 
+# +
+# company_name = "CJ씨푸드"
+# company_type = "식료품"
+# bucket_name = "eqs-rag"
+# doc_name = "[CJ씨푸드]사업보고서(2024.03.19).pdf"
 
-company_name = "CJ씨푸드"
-company_type = "식료품"
-bucket_name = "eqs-rag"
-doc_name = "[CJ씨푸드]사업보고서(2024.03.19).pdf"
-
-print(rag(company_name, company_type, bucket_name, doc_name))
+# +
+# print(rag(company_name, company_type, bucket_name, doc_name))
+# -
 
 # company_name = "CJ씨푸드"
 # company_type = "식료품"
