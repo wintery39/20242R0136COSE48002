@@ -1,5 +1,5 @@
 from models import Company, Okr, Prediction
-from sqlalchemy import select, func, update, insert as sq_insert
+from sqlalchemy import select, func, update, insert as sq_insert, or_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
@@ -160,6 +160,14 @@ async def get_okr_join_company_prediction(db: AsyncSession, offset, page_size, c
             query = query.order_by(Okr.created_at.desc()).offset(offset).limit(page_size)
         else:
             query = query.order_by(Okr.created_at.asc()).offset(offset).limit(page_size)
+
+        query = query.where(
+            or_(
+                Okr.guideline != None,  # 또는 Okr.guideline.is_not(None)
+                Okr.revision != None,
+                Okr.predictions != None
+            )
+        )
 
         logger.debug(f"쿼리 생성 완료: {query}")
         result = await db.execute(query)
